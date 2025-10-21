@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,8 +22,8 @@
             <div class="collapse navbar-collapse" id="mnxAcademica">
                 <div class="navbar-nav">
                     <a class="nav-link" href="#" data-form="alumnos">Alumnos</a>
-                    <a class="nav-link" href="#" data-form="materias">Materias</a>
                     <a class="nav-link" href="#" data-form="docentes">Docentes</a>
+                    <a class="nav-link" href="#" data-form="materias">Materias</a>
                     <a class="nav-link" href="#" data-form="notas">Notas</a>
                 </div>
             </div>
@@ -32,10 +32,10 @@
     <div class="container-fluid">
         <div class="position-absolute" id="alumnos"></div>
         <div class="position-absolute" id="busqueda_alumnos"></div>
-        <div class="position-absolute" id="materias"></div>
-        <div class="position-absolute" id="busqueda_materias"></div>
         <div class="position-absolute" id="docentes"></div>
         <div class="position-absolute" id="busqueda_docentes"></div>
+        <div class="position-absolute" id="materias"></div>
+        <div class="position-absolute" id="busqueda_materias"></div>
         <div class="position-absolute" id="notas"></div>
         <div class="position-absolute" id="busqueda_notas"></div>
     </div>
@@ -46,6 +46,10 @@
     <!-- JavaScript -->
     <script src="//cdn.jsdelivr.net/npm/alertifyjs@1.14.0/build/alertify.min.js"></script>
     <script>
+        // Variables globales para docentes
+        var accionDocente = "nuevo",
+            idDocente = 0;
+
         document.addEventListener("DOMContentLoaded", event=>{
             mnxAcademica.addEventListener('click', e=>{
                 e.preventDefault();
@@ -54,15 +58,139 @@
                 abrirVentana(form);
             });
         });
+        
         function abrirVentana(form, callback){
             if( $(`#${form} > form`).length === 0 ){
                 fetch(`/vistas?form=${form}`)
                 .then(response => response.text())
                 .then(ventana => {
                     $(`#${form}`).html(ventana).draggable();
+                    cerrarVentana();
                     if(callback) callback();
                 })
                 .catch(error => console.error('Error al cargar el formulario:', error));
+            }else{
+                $(`#${form}`).show();
+            }
+        }
+        
+        function cerrarVentana(){
+            $('.btn-close').off('click').click(e=>{
+                let form = e.target.dataset.form;
+                $(`#${form}`).hide();
+            });
+        }
+
+        // Funciones globales para docentes
+        async function guardarDocentes(){
+            let datos = {
+                accion: accionDocente,
+                idDocente: idDocente,
+                codigo: document.getElementById('txtCodigoDocente').value,
+                nombre: document.getElementById('txtNombreDocente').value,
+                direccion: document.getElementById('txtDireccionDocente').value,
+                telefono: document.getElementById('txtTelefonoDocente').value,
+                email: document.getElementById('txtEmailDocente').value,
+                especialidad: document.getElementById('txtEspecialidadDocente').value
+            };
+            
+            let response = await fetch("/docentes", {
+                method: "POST",
+                body: JSON.stringify(datos),
+            });
+            
+            let respuesta = await response.json();
+            
+            if(respuesta.msg != "ok"){
+                alertify.error(`Error al procesar docente: ${respuesta}`);
+                return;
+            }
+            
+            limpiarFormularioDocente();
+            alertify.success("Docente guardado correctamente");
+        }
+
+        function limpiarFormularioDocente(){
+            accionDocente = "nuevo";
+            idDocente = 0;
+            document.getElementById('txtCodigoDocente').value = "";
+            document.getElementById('txtNombreDocente').value = "";
+            document.getElementById('txtDireccionDocente').value = "";
+            document.getElementById('txtTelefonoDocente').value = "";
+            document.getElementById('txtEmailDocente').value = "";
+            document.getElementById('txtEspecialidadDocente').value = "";
+        }
+
+        function mostrarDocente(docente){
+            accionDocente = "modificar";
+            idDocente = docente.idDocente;
+            document.getElementById('txtCodigoDocente').value = docente.codigo;
+            document.getElementById('txtNombreDocente').value = docente.nombre;
+            document.getElementById('txtDireccionDocente').value = docente.direccion;
+            document.getElementById('txtTelefonoDocente').value = docente.telefono;
+            document.getElementById('txtEmailDocente').value = docente.email;
+            document.getElementById('txtEspecialidadDocente').value = docente.especialidad;
+            
+            // Cerrar ventana de búsqueda si está abierta
+            $('#busqueda_docentes').hide();
+            $('#docentes').show();
+        }
+
+        async function obtenerDocentes(buscar = ""){
+            let url = "/docentes";
+            if (buscar) {
+                url += `?buscar=${encodeURIComponent(buscar)}`;
+            }
+            
+            let response = await fetch(url);
+            let respuesta = await response.json();
+            mostrarDatosDocentes(respuesta);
+        }
+
+        function mostrarDatosDocentes(docentes){
+            let filas = "";
+            docentes.forEach(docente => {
+                filas += `
+                    <tr>
+                        <td>${docente.codigo}</td>
+                        <td>${docente.nombre}</td>
+                        <td>${docente.especialidad || ''}</td>
+                        <td>${docente.telefono || ''}</td>
+                        <td>${docente.email || ''}</td>
+                        <td>
+                            <button onclick='seleccionarDocente(${JSON.stringify(docente)})' class="btn btn-primary btn-sm">SELECCIONAR</button>
+                            <button onclick='eliminarDocente(${JSON.stringify(docente)})' class="btn btn-danger btn-sm">ELIMINAR</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('tblDocentes').innerHTML = filas;
+        }
+
+        function seleccionarDocente(docente){
+            mostrarDocente(docente);
+        }
+
+        async function eliminarDocente(docente){
+            if(confirm(`¿Está seguro de eliminar al docente ${docente.nombre}?`)){
+                let datos = {
+                    accion: "eliminar",
+                    idDocente: docente.idDocente
+                };
+                
+                let response = await fetch("/docentes", {
+                    method: "POST",
+                    body: JSON.stringify(datos),
+                });
+                
+                let respuesta = await response.json();
+                
+                if(respuesta.msg == "ok"){
+                    alertify.success("Docente eliminado correctamente");
+                    obtenerDocentes(document.getElementById('txtBuscarDocente')?.value || '');
+                } else {
+                    alertify.error(`Error al eliminar docente: ${respuesta}`);
+                }
             }
         }
     </script>

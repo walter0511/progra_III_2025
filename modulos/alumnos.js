@@ -1,4 +1,4 @@
- var accion = "nuevo",
+var accion = "nuevo",
     idAlumno = 0;
 document.addEventListener("DOMContentLoaded", event=>{ 
     frmAlumnos.addEventListener("submit",e=>{
