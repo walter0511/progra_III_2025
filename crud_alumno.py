@@ -4,7 +4,7 @@ db = crud_academico.crud()
 
 class crud_alumno:
     
-    def __init__(self):
+    def _init_(self):
         print("CRUD Alumnos inicializado")
     
     def consultar(self, buscar):

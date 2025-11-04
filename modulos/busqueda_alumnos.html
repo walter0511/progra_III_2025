@@ -1,8 +1,15 @@
 <form id="frmBusquedaAlumnos">
     <div class="card text-bg-dark">
-        <div class="card-header">BUSQUEDA DE ALUMNOS</div>
+        <div class="card-header">
+            <div class="d-flex">
+                BUSQUEDA DE ALUMNOS
+                <div class="ms-auto">
+                    <button data-form="busqueda_alumnos" type="button" class="btn-close btn-close-white" aria-label="Close"></button>
+                </div>
+            </div>
+        </div>
         <div class="card-body">
-            <table class="table table-hover">
+            <table class="table table-hover table-dark table-striped text-white">
                 <thead>
                     <tr>
                         <th>CODIGO</th>
@@ -35,7 +42,7 @@
                     <td>${alumno.direccion}</td>
                     <td>${alumno.telefono}</td>
                     <td>${alumno.email}</td>
-                    <td><button onClick='eliminarAlumno(${ JSON.stringify(alumno) }, event)' class="btn btn-danger btn-sm">ELIMINAR</button></td>
+                    <td><button onClick='eliminarAlumno(${ JSON.stringify(alumno) }, event)' class="btn btn-outline-danger btn-sm">ELIMINAR</button></td>
                 </tr>
             `;
         });
@@ -48,6 +55,7 @@
             idAlumno = alumno.idAlumno;
             accion = "eliminar";
             guardarAlumnos();
+            alertify.success('Alumno eliminado correctamente');
         }
     }
 </script>

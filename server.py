@@ -1,17 +1,31 @@
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib import parse
 from urllib.parse import urlparse, parse_qs
-import json
-import os
-from crud_usuario import crud_usuario
+import json 
 import crud_alumno
-import crud_docentes  
+import os
+import hashlib
 
-port = 3000
-
+port = 8000
 
 crudAlumno = crud_alumno.crud_alumno()
-crudDocente = crud_docentes.crud_docente()
+
+# Simulación de base de datos de usuarios (en producción usa una base de datos real)
+usuarios = {
+    "admin": {
+        "clave": hashlib.md5("1234".encode()).hexdigest(),  # En producción usa bcrypt
+        "nombre": "Administrador",
+        "rol": "admin"
+    },
+    "docente": {
+        "clave": hashlib.md5("1234".encode()).hexdigest(),
+        "nombre": "Docente Ejemplo", 
+        "rol": "docente"
+    }
+}
+
+# Diccionario para simular sesiones (en producción usa sessions reales)
+sesiones = {}
 
 class miServidor(SimpleHTTPRequestHandler):
     
@@ -19,180 +33,138 @@ class miServidor(SimpleHTTPRequestHandler):
         url_parseada = urlparse(self.path)
         path = url_parseada.path
         parametros = parse_qs(url_parseada.query)
-        
-        print(f"Solicitud GET: {self.path}")
-        print(f"Path actual: {path}")  # DEBUG AGREGADO
-        
-        # Mapeo de rutas a archivos
-        rutas = {
-            '/': 'login.html',
-            '/login': 'login.html',
-            '/sistema': 'index.html'
-        }
-        
-        # Si es una ruta conocida, servir el archivo correspondiente
-        if path in rutas:
-            archivo = rutas[path]
-            # VERIFICACIÓN AGREGADA
-            if os.path.exists(archivo):
-                self.path = '/' + archivo
-                print(f"✓ Archivo encontrado: {archivo}")
+
+        # Servir archivos estáticos
+        if path.startswith('/static/') or '.' in path:
+            return SimpleHTTPRequestHandler.do_GET(self)
+            
+        # Ruta principal - redirige al login
+        if path == "/":
+            self.path = "login.html"
+            return SimpleHTTPRequestHandler.do_GET(self)
+            
+        # Ruta del sistema principal
+        elif path == "/sistema":
+            # Verificar si el usuario está autenticado
+            token = self.headers.get('Cookie', '').replace('token=', '')
+            if token in sesiones:
+                self.path = "index.html"
                 return SimpleHTTPRequestHandler.do_GET(self)
             else:
-                print(f"✗ Archivo NO encontrado: {archivo}")
-                print(f"   Directorio actual: {os.getcwd()}")
-                print(f"   Archivos en directorio: {os.listdir('.')}")
-                self.send_error(404, f"Archivo {archivo} no existe")
+                self.send_response(302)
+                self.send_header('Location', '/')
+                self.end_headers()
                 return
-        
-        # Endpoint para alumnos (del CRUD original)
-        if self.path == "/alumnos":
+                
+        # Ruta de login
+        elif path == "/login":
+            self.path = "login.html"
+            return SimpleHTTPRequestHandler.do_GET(self)
+            
+        # API para obtener alumnos
+        elif path == "/alumnos":
             alumnos = crudAlumno.consultar("")
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(alumnos).encode('utf-8'))
-            return
-        
-        # Endpoint para docentes (NUEVO)
-        if self.path.startswith("/docentes"):
-            url_parseada = urlparse(self.path)
-            parametros = parse_qs(url_parseada.query)
-            buscar = parametros.get('buscar', [''])[0]
             
-            docentes = crudDocente.consultar(buscar)
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(docentes).encode('utf-8'))
-            return
-        
-  
+        # Servir vistas/modulos
         elif path == "/vistas":
-            form_name = parametros.get('form', [''])[0]
-            if form_name:
-                archivo_vista = f'modulos/{form_name}.html'
-                if os.path.exists(archivo_vista):
-                    self.path = '/' + archivo_vista
-                    print(f"✓ Cargando vista: {archivo_vista}")
-                    return SimpleHTTPRequestHandler.do_GET(self)
-                else:
-                    print(f"✗ Vista no encontrada: {archivo_vista}")
-                    self.send_error(404, f"Vista {form_name} no encontrada")
-                    return
-            else:
-                self.send_error(404, "Parámetro 'form' no especificado")
-                return
-        
-   
-        elif os.path.exists(self.path[1:]) and os.path.isfile(self.path[1:]):
+            self.path = '/modulos/' + parametros['form'][0] + '.html'
             return SimpleHTTPRequestHandler.do_GET(self)
-        
-    
-        elif os.path.exists(self.path[1:]) and self.path != '/':
-            return SimpleHTTPRequestHandler.do_GET(self)
-        
-        else:
             
-            print(f"✗ Archivo no encontrado: {self.path}")
-            self.send_error(404, "Página no encontrada")
-            return
-
+        # Ruta por defecto - servir archivo directamente
+        else:
+            if os.path.exists(self.path[1:]):
+                return SimpleHTTPRequestHandler.do_GET(self)
+            else:
+                self.send_error(404, "File not found")
+    
     def do_POST(self):
+        url_parseada = urlparse(self.path)
+        path = url_parseada.path
+        
+        # Procesar login
+        if path == "/login":
+            self.procesar_login()
+            
+        # Procesar otras peticiones POST (alumnos, docentes, etc.)
+        elif path in ["/alumnos", "/docentes", "/materias", "/notas"]:
+            self.procesar_datos(path)
+        else:
+            self.send_error(404, "Endpoint not found")
+    
+    def procesar_login(self):
         longitud = int(self.headers['Content-Length'])
         datos = self.rfile.read(longitud)
         datos = datos.decode("utf-8")
+        datos = json.loads(datos)
         
-        print(f"Solicitud POST: {self.path}")
-        print(f"Datos recibidos: {datos}")
-        
-        try:
-            datos = json.loads(datos)
-        except json.JSONDecodeError as e:
-            print(f"Error decodificando JSON: {e}")
-            self.send_error(400, "JSON inválido")
-            return
-        
-      
-        if self.path == "/login":
-            self.procesar_login(datos)
-            
-      
-        elif self.path == "/usuarios":
-            self.procesar_usuarios(datos)
-            
-   
-        elif self.path == "/alumnos":
-            resp = {"msg": crudAlumno.administrar(datos)}
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
-            
-    
-        elif self.path == "/docentes":
-            resp = {"msg": crudDocente.administrar(datos)}
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
-            
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-    def procesar_login(self, datos):
         usuario = datos.get('usuario', '')
         clave = datos.get('clave', '')
         
-        print(f"Intentando login para usuario: {usuario}")
-        
-        
-        usuario_valido = crud_usuario.login(usuario, clave)
-        
-        if usuario_valido:
-            resp = {
+        # Validar credenciales
+        if usuario in usuarios and usuarios[usuario]['clave'] == hashlib.md5(clave.encode()).hexdigest():
+            # Crear sesión
+            import uuid
+            token = str(uuid.uuid4())
+            sesiones[token] = {
+                'usuario': usuario,
+                'nombre': usuarios[usuario]['nombre'],
+                'rol': usuarios[usuario]['rol']
+            }
+            
+            respuesta = {
                 "msg": "ok", 
                 "usuario": {
-                    "id": usuario_valido['idUsuario'],
-                    "nombre": usuario_valido['nombre'],
-                    "usuario": usuario_valido['usuario']
+                    "nombre": usuarios[usuario]['nombre'],
+                    "rol": usuarios[usuario]['rol']
                 }
             }
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Set-Cookie', f'token={token}; Path=/')
+            self.end_headers()
+            self.wfile.write(json.dumps(respuesta).encode("utf-8"))
         else:
-            resp = {"msg": "error", "error": "Usuario o contraseña incorrectos"}
-            
-        self.enviar_respuesta(resp)
-
-    def procesar_usuarios(self, datos):
-        accion = datos.get('accion', '')
-        respuesta = {"msg": "error", "error": "Acción no válida"}
+            respuesta = {
+                "msg": "error", 
+                "error": "Usuario o contraseña incorrectos"
+            }
+            self.send_response(401)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(respuesta).encode("utf-8"))
+    
+    def procesar_datos(self, endpoint):
+        longitud = int(self.headers['Content-Length'])
+        datos = self.rfile.read(longitud)
+        datos = datos.decode("utf-8")
+        datos = parse.unquote(datos)
+        datos = json.loads(datos)
         
-        if accion == "nuevo":
-            resultado = crud_usuario.crear_usuario(datos)
-            respuesta = {"msg": resultado}
-            
-        elif accion == "modificar":
-            resultado = crud_usuario.actualizar_usuario(datos)
-            respuesta = {"msg": resultado}
-            
-        elif accion == "eliminar":
-            id_usuario = datos.get('idUsuario')
-            if id_usuario:
-                resultado = crud_usuario.eliminar_usuario(id_usuario)
-                respuesta = {"msg": resultado}
-                
-        elif accion == "consultar":
-            if datos.get('idUsuario'):
-                usuario = crud_usuario.obtener_usuario_por_id(datos['idUsuario'])
-                respuesta = {"msg": "ok", "usuario": usuario}
-            else:
-                usuarios = crud_usuario.obtener_todos_usuarios()
-                respuesta = {"msg": "ok", "usuarios": usuarios}
+        # Aquí puedes agregar validación de sesión si lo necesitas
+        # token = self.headers.get('Cookie', '').replace('token=', '')
+        # if token not in sesiones:
+        #     self.send_response(401)
+        #     self.end_headers()
+        #     return
         
-        self.enviar_respuesta(respuesta)
-
-    def enviar_respuesta(self, datos):
+        # Procesar según el endpoint
+        if endpoint == "/alumnos":
+            resp = {"msg": crudAlumno.administrar(datos)}
+        elif endpoint == "/docentes":
+            # Aquí llamarías a tu CRUD de docentes
+            resp = {"msg": "ok"}  # Placeholder
+        elif endpoint == "/materias":
+            # Aquí llamarías a tu CRUD de materias  
+            resp = {"msg": "ok"}  # Placeholder
+        elif endpoint == "/notas":
+            # Aquí llamarías a tu CRUD de notas
+            resp = {"msg": "ok"}  # Placeholder
+        
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -206,7 +178,7 @@ class miServidor(SimpleHTTPRequestHandler):
 print("=" * 50)
 print("Servidor académico iniciando...")
 print("Puerto:", port)
-print("URL: http://localhost:3000")
+print("URL: http://localhost:8000")
 print(f"Directorio de trabajo: {os.getcwd()}")
 print("=" * 50)
 

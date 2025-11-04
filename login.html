@@ -39,13 +39,13 @@
         <form id="frmLogin">
             <div class="mb-3">
                 <label for="txtUsuario" class="form-label text-white">Usuario</label>
-                <input type="text" class="form-control form-control-lg" id="txtUsuario"
+                <input type="text" class="form-control form-control-lg" id="txtUsuario" 
                        placeholder="Ingrese su usuario" required>
             </div>
             
             <div class="mb-3">
                 <label for="txtClave" class="form-label text-white">Contraseña</label>
-                <input type="password" class="form-control form-control-lg" id="txtClave"
+                <input type="password" class="form-control form-control-lg" id="txtClave" 
                        placeholder="Ingrese su contraseña" required>
             </div>
             
@@ -64,9 +64,7 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="//cdn.jsdelivr.net/npm/alertifyjs@1.14.0/build/alertify.min.js"></script>
-    
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             const frmLogin = document.getElementById('frmLogin');
@@ -79,9 +77,16 @@
                 const usuario = document.getElementById('txtUsuario').value;
                 const clave = document.getElementById('txtClave').value;
                 
+                // Validar campos vacíos
+                if (!usuario.trim() || !clave.trim()) {
+                    alertify.error('Por favor complete todos los campos');
+                    return;
+                }
+                
                 // Mostrar loading
                 btnText.classList.add('d-none');
                 btnLoading.classList.remove('d-none');
+                frmLogin.querySelector('button[type="submit"]').disabled = true;
                 
                 try {
                     const response = await fetch('/login', {
@@ -98,7 +103,7 @@
                     const resultado = await response.json();
                     
                     if (resultado.msg === 'ok') {
-                        alertify.success(`Bienvenido ${resultado.usuario.nombre}`);
+                        alertify.success(`Bienvenido ${resultado.usuario?.nombre || ''}`);
                         setTimeout(() => {
                             window.location.href = '/sistema';
                         }, 1000);
@@ -115,6 +120,7 @@
                     // Ocultar loading
                     btnText.classList.remove('d-none');
                     btnLoading.classList.add('d-none');
+                    frmLogin.querySelector('button[type="submit"]').disabled = false;
                 }
             });
             

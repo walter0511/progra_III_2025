@@ -2,7 +2,7 @@ import mysql.connector
 from mysql.connector import Error
 
 class crud:
-    def __init__(self):
+    def _init_(self):
         print("Conectando a la base de datos...")
         self.conexion = mysql.connector.connect(
             host='localhost',
