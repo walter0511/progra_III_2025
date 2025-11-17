@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Categorías - Agroquímica La Bellota</title>
+<style>
+body {
+    font-family: 'Roboto', sans-serif;
+    background: linear-gradient(to bottom, #74E874 0%, #40E0D0 20%, #20B2AA 40%, #008B8B 100%);
+    min-height: 100vh;
+    margin: 0;
+}
+.header {
+    background-color: #fff;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+    gap: 15px;
+}
+.header h2 {
+    color: #00bfff;
+    margin: 0;
+}
+.back-btn {
+    text-decoration: none;
+    color: #00bfff;
+    font-weight: bold;
+    font-size: 24px;
+    transition: transform 0.2s ease;
+}
+.back-btn:hover {
+    transform: scale(1.2);
+}
+.container {
+    max-width: 600px;
+    margin: 40px auto;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+}
+input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+button {
+    padding: 10px 20px;
+    border: none;
+    background-color: #76b900;
+    color: white;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+}
+button:hover {
+    background-color: #64a000;
+}
+.category-list {
+    margin-top: 20px;
+}
+.category-item {
+    background-color: #f4f4f4;
+    padding: 10px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.delete-btn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.delete-btn:hover {
+    background-color: #d32f2f;
+}
+</style>
+</head>
+<body>
+<div class="header">
+    <a href="/productos" class="back-btn">&#8592;</a>
+    <h2>Categorías</h2>
+</div>
+
+<div class="container">
+    <h3>Agregar nueva categoría</h3>
+    <form id="categoriaForm">
+        <input type="text" id="nombreCategoria" placeholder="Nombre de la categoría" required>
+        <button type="submit">Guardar</button>
+    </form>
+
+    <div class="category-list" id="categoryList"></div>
+</div>
+
+<script type="application/json" id="categorias-data">{{ categorias | tojson | safe }}</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    let categorias = JSON.parse(document.getElementById('categorias-data').textContent || '[]');
+
+    const form = document.getElementById("categoriaForm");
+    const list = document.getElementById("categoryList");
+
+    function renderCategorias() {
+        list.innerHTML = '';
+        categorias.forEach(c => {
+            const item = document.createElement("div");
+            item.className = "category-item";
+            item.innerHTML = `<span>${c.nombre}</span>
+                <button class="delete-btn" onclick="eliminarCategoria(${c.id})">Eliminar</button>`;
+            list.appendChild(item);
+        });
+    }
+
+    form.addEventListener("submit", function(e) {
+        e.preventDefault();
+        const nombre = document.getElementById("nombreCategoria").value;
+
+        fetch('/categorias/agregar', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({ nombre })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                
+                categorias.push({ id: res.nuevoId, nombre }); 
+                renderCategorias();
+                form.reset();
+            } else {
+                alert(res.error);
+            }
+        });
+    });
+
+    window.eliminarCategoria = function(id) {
+        if (confirm("¿Desea eliminar esta categoría?")) {
+            fetch(`/categorias/eliminar/${id}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    categorias = res.categorias;
+                    renderCategorias();
+                } else {
+                    alert(res.error);
+                }
+            });
+        }
+    };
+
+    renderCategorias();
+});
+</script>
+</body>
+</html>
