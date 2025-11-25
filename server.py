@@ -1,12 +1,12 @@
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib import parse
 from urllib.parse import urlparse, parse_qs
-import json 
-import crud_alumno
+import json
+import tensorflow as tf
+import numpy as np
 
+model = tf.keras.models.load_model('grados.h5')
 port = 3000
-
-crudAlumno = crud_alumno.crud_alumno()
 
 class miServidor(SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -17,14 +17,6 @@ class miServidor(SimpleHTTPRequestHandler):
         if self.path=="/":
             self.path="index.html"
             return SimpleHTTPRequestHandler.do_GET(self)
-        if self.path=="/alumnos":
-            alumnos = crudAlumno.consultar("")
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(json.dumps(alumnos).encode('utf-8'))
-        if path=="/vistas":
-            self.path = '/modulos/'+ parametros['form'][0] +'.html'
-            return SimpleHTTPRequestHandler.do_GET(self)
     
     def do_POST(self):
         longitud = int(self.headers['Content-Length'])
@@ -32,7 +24,9 @@ class miServidor(SimpleHTTPRequestHandler):
         datos = datos.decode("utf-8")
         datos = parse.unquote(datos)
         datos = json.loads(datos)
-        resp = {"msg": crudAlumno.administrar(datos)}
+        c = int(datos['celsius'])
+        prediccion = model.predict(np.array([c]))
+        resp = {"grados": str(prediccion[0][0])}
         
         self.send_response(200)
         self.end_headers()
