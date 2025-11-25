@@ -41,6 +41,9 @@
                             <input type="number" class="form-control" id="txtGradosCelsius" required>
                         </div>
                         <div class="mb-3">
+                            <h3><span id="lblGradosKelvin" class="badge text-bg-light">Kelvin: 0</span></h3>
+                        </div>
+                        <div class="mb-3">
                             <h3><span id="lblGradosFahrenheit" class="badge text-bg-light">Fahrenheit: 0</span></h3>
                         </div>
                         <button type="submit" class="btn btn-primary">Convertir</button>
@@ -73,7 +76,8 @@
                     body: JSON.stringify(datos)
                 }),
                     resp = await respuesta.json();
-                lblGradosFahrenheit.innerHTML = `Fahrenheit: ${resp.grados}`;
+                lblGradosKelvin.innerHTML = `Kelvin: ${resp.kelvin}`;
+                lblGradosFahrenheit.innerHTML = `Fahrenheit: ${resp.fahrenheit}`;
             })
         });
     </script>

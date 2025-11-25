@@ -19,16 +19,26 @@ class miServidor(SimpleHTTPRequestHandler):
             return SimpleHTTPRequestHandler.do_GET(self)
     
     def do_POST(self):
-        longitud = int(self.headers['Content-Length'])
+        longitud = int(self.headers.get('Content-Length', 0))
         datos = self.rfile.read(longitud)
         datos = datos.decode("utf-8")
         datos = parse.unquote(datos)
         datos = json.loads(datos)
-        c = int(datos['celsius'])
-        prediccion = model.predict(np.array([c]))
-        resp = {"grados": str(prediccion[0][0])}
+        c = float(datos['celsius'])
+        
+        # Usar el modelo para predecir Kelvin y Fahrenheit (entrando como array 2D)
+        preds = model.predict(np.array([[c]]))
+        kelvin = float(preds[0][0])
+        fahrenheit = float(preds[0][1])
+        
+        resp = {
+            "kelvin": round(kelvin, 2),
+            "fahrenheit": round(fahrenheit, 2)
+        }
         
         self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(resp).encode("utf-8"))
 
